@@ -1,0 +1,191 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Service的绑定小结 | T+ 的小院</title><meta name="keywords" content="Android,Service"><meta name="author" content="T+"><meta name="copyright" content="T+"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta http-equiv="Cache-Control" content="no-transform"><meta http-equiv="Cache-Control" content="no-siteapp"><meta name="description" content="这是一篇四大组件之一——Service 的深入篇，主要总结在绑定服务中的一些概念。参考：在官方文档中API 关于 Service 中简单阐述了一部分 Activity 与 Service 绑定的通讯方式：绑定服务  A.关于本地绑定服务的基本操作流程Service 与 Activity 进行同一进程的通讯(本地通讯，服务只能被自身所使用)，通过拓展 Binder 类绑定服务是一种常见的做法，然后">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Service的绑定小结">
+<meta property="og:url" content="https://tommyfen.cn/2017/11/26/Service%E7%9A%84%E7%BB%91%E5%AE%9A%E5%B0%8F%E7%BB%93/index.html">
+<meta property="og:site_name" content="T+ 的小院">
+<meta property="og:description" content="这是一篇四大组件之一——Service 的深入篇，主要总结在绑定服务中的一些概念。参考：在官方文档中API 关于 Service 中简单阐述了一部分 Activity 与 Service 绑定的通讯方式：绑定服务  A.关于本地绑定服务的基本操作流程Service 与 Activity 进行同一进程的通讯(本地通讯，服务只能被自身所使用)，通过拓展 Binder 类绑定服务是一种常见的做法，然后">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://tommyfen.cn/assets/img/avatar.png">
+<meta property="article:published_time" content="2017-11-26T14:44:50.000Z">
+<meta property="article:modified_time" content="2021-01-14T15:43:37.420Z">
+<meta property="article:author" content="T+">
+<meta property="article:tag" content="Android">
+<meta property="article:tag" content="Service">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://tommyfen.cn/assets/img/avatar.png"><link rel="shortcut icon" href="/assets/img/favicon-32x32-next.png"><link rel="canonical" href="https://tommyfen.cn/2017/11/26/Service%E7%9A%84%E7%BB%91%E5%AE%9A%E5%B0%8F%E7%BB%93/"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free/css/all.min.css" media="print" onload="this.media='all'"><script>var GLOBAL_CONFIG = { 
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  noticeOutdate: undefined,
+  highlight: {"plugin":"highlighjs","highlightCopy":true,"highlightLang":true},
+  copy: {
+    success: '复制成功',
+    error: '复制错误',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: false
+  },
+  runtime: '',
+  date_suffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'fancybox',
+  Snackbar: undefined,
+  source: {
+    jQuery: 'https://cdn.jsdelivr.net/npm/jquery@latest/dist/jquery.min.js',
+    justifiedGallery: {
+      js: 'https://cdn.jsdelivr.net/npm/justifiedGallery/dist/js/jquery.justifiedGallery.min.js',
+      css: 'https://cdn.jsdelivr.net/npm/justifiedGallery/dist/css/justifiedGallery.min.css'
+    },
+    fancybox: {
+      js: 'https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@latest/dist/jquery.fancybox.min.js',
+      css: 'https://cdn.jsdelivr.net/npm/@fancyapps/fancybox@latest/dist/jquery.fancybox.min.css'
+    }
+  },
+  isPhotoFigcaption: false,
+  islazyload: false,
+  isanchor: false
+};
+
+var saveToLocal = {
+  set: function setWithExpiry(key, value, ttl) {
+    const now = new Date()
+    const expiryDay = ttl * 86400000
+    const item = {
+      value: value,
+      expiry: now.getTime() + expiryDay,
+    }
+    localStorage.setItem(key, JSON.stringify(item))
+  },
+
+  get: function getWithExpiry(key) {
+    const itemStr = localStorage.getItem(key)
+
+    if (!itemStr) {
+      return undefined
+    }
+    const item = JSON.parse(itemStr)
+    const now = new Date()
+
+    if (now.getTime() > item.expiry) {
+      localStorage.removeItem(key)
+      return undefined
+    }
+    return item.value
+  }
+}
+
+// https://stackoverflow.com/questions/16839698/jquery-getscript-alternative-in-native-javascript
+const getScript = url => new Promise((resolve, reject) => {
+  const script = document.createElement('script')
+  script.src = url
+  script.async = true
+  script.onerror = reject
+  script.onload = script.onreadystatechange = function() {
+    const loadState = this.readyState
+    if (loadState && loadState !== 'loaded' && loadState !== 'complete') return
+    script.onload = script.onreadystatechange = null
+    resolve()
+  }
+  document.head.appendChild(script)
+})</script><script id="config_change">var GLOBAL_CONFIG_SITE = { 
+  isPost: true,
+  isHome: false,
+  isHighlightShrink: false,
+  isToc: true,
+  postUpdate: '2021-01-14 23:43:37'
+}</script><noscript><style type="text/css">
+  #nav {
+    opacity: 1
+  }
+  .justified-gallery img {
+    opacity: 1
+  }
+
+  #recent-posts time,
+  #post-meta time {
+    display: inline !important
+  }
+</style></noscript><script>(function () {  window.activateDarkMode = function () {
+    document.documentElement.setAttribute('data-theme', 'dark')
+    if (document.querySelector('meta[name="theme-color"]') !== null) {
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+    }
+  }
+  window.activateLightMode = function () {
+    document.documentElement.setAttribute('data-theme', 'light')
+   if (document.querySelector('meta[name="theme-color"]') !== null) {
+      document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+    }
+  }
+  const autoChangeMode = 'false'
+  const t = saveToLocal.get('theme')
+  if (autoChangeMode === '1') {
+    const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const isLightMode = window.matchMedia('(prefers-color-scheme: light)').matches
+    const isNotSpecified = window.matchMedia('(prefers-color-scheme: no-preference)').matches
+    const hasNoSupport = !isDarkMode && !isLightMode && !isNotSpecified
+    if (t === undefined) {
+      if (isLightMode) activateLightMode()
+      else if (isDarkMode) activateDarkMode()
+      else if (isNotSpecified || hasNoSupport) {
+        const now = new Date()
+        const hour = now.getHours()
+        const isNight = hour <= 6 || hour >= 18
+        isNight ? activateDarkMode() : activateLightMode()
+      }
+      window.matchMedia('(prefers-color-scheme: dark)').addListener(function (e) {
+        if (saveToLocal.get('theme') === undefined) {
+          e.matches ? activateDarkMode() : activateLightMode()
+        }
+      })
+    } else if (t === 'light') activateLightMode()
+    else activateDarkMode()
+  } else if (autoChangeMode === '2') {
+    const now = new Date()
+    const hour = now.getHours()
+    const isNight = hour <= 6 || hour >= 18
+    if (t === undefined) isNight ? activateDarkMode() : activateLightMode()
+    else if (t === 'light') activateLightMode()
+    else activateDarkMode()
+  } else {
+    if (t === 'dark') activateDarkMode()
+    else if (t === 'light') activateLightMode()
+  }const asideStatus = saveToLocal.get('aside-status')
+if (asideStatus !== undefined) {
+   if (asideStatus === 'hide') {
+     document.documentElement.classList.add('hide-aside')
+   } else {
+     document.documentElement.classList.remove('hide-aside')
+   }
+}})()</script><meta name="generator" content="Hexo 5.3.0"></head><body><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="author-avatar"><img class="avatar-img" src="/assets/img/avatar.png" onerror="onerror=null;src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data"><div class="data-item is-center"><div class="data-item-link"><a href="/archives/"><div class="headline">文章</div><div class="length-num">10</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/tags/"><div class="headline">标签</div><div class="length-num">9</div></a></div></div><div class="data-item is-center"><div class="data-item-link"><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div></div></div><hr/><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 时间轴</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="no-top-img" id="page-header"><nav id="nav"><span id="blog_name"><a id="site-name" href="/">T+ 的小院</a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 时间轴</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><a class="site-page"><i class="fas fa-bars fa-fw"></i></a></div></div></nav></header><main class="layout" id="content-inner"><div id="post"><div id="post-info"><h1 class="post-title">Service的绑定小结</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2017-11-26T14:44:50.000Z" title="发表于 2017-11-26 22:44:50">2017-11-26</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2021-01-14T15:43:37.420Z" title="更新于 2021-01-14 23:43:37">2021-01-14</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Android%E5%9F%BA%E7%A1%80/">Android基础</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv"><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">阅读量:</span><span id="busuanzi_value_page_pv"></span></span></div></div></div><article class="post-content" id="article-container"><blockquote>
+<p>这是一篇四大组件之一——Service 的深入篇，主要总结在绑定服务中的一些概念。<br>参考：在官方文档中API 关于 Service 中简单阐述了一部分 <code>Activity</code> 与 <code>Service</code> 绑定的通讯方式：<a target="_blank" rel="noopener" href="https://developer.android.google.cn/guide/components/bound-services.html">绑定服务</a></p>
+</blockquote>
+<h1 id="A-关于本地绑定服务的基本操作流程"><a href="#A-关于本地绑定服务的基本操作流程" class="headerlink" title="A.关于本地绑定服务的基本操作流程"></a>A.关于本地绑定服务的基本操作流程</h1><p><strong>Service</strong> 与 <strong>Activity</strong> 进行同一进程的通讯(本地通讯，服务只能被自身所使用)，通过拓展 <strong>Binder</strong> 类绑定服务是一种常见的做法，然后服务中通过广播将数据返回到 <strong>Activity</strong> 当中：</p>
+<a id="more"></a>
+<ul>
+<li>在 <strong>Service</strong> 当中，在内部定义一个内部类继承 <strong>Binder</strong> 类，并在类中定一个方法返回服务的实例，然后在 <code>onBind()</code>方法中返回该 <strong>Binder</strong> 实例：<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">MyService</span> <span class="title">extend</span> <span class="title">Service</span> </span>&#123;</span><br><span class="line">    ......</span><br><span class="line">    <span class="keyword">public</span> <span class="class"><span class="keyword">class</span> <span class="title">LocalBinder</span> <span class="title">extend</span> <span class="title">Binder</span> </span>&#123;</span><br><span class="line">        <span class="function">MyService <span class="title">getService</span><span class="params">()</span> </span>&#123;</span><br><span class="line">            <span class="keyword">return</span> MyService.<span class="keyword">this</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="function"><span class="keyword">public</span> IBinder <span class="title">onBind</span><span class="params">(Intent intent)</span> </span>&#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> LocalBinder;</span><br><span class="line">    &#125;</span><br><span class="line">    ......</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure></li>
+<li>在 <strong>Activity</strong> 当中，使用 <code>bindService()</code> 方法对服务进行绑定，然后在 <strong>ServiceConnection</strong> 的实例当中获取 Service 绑定成功放回的 <strong>Binder</strong> 类实例，通过该实例再获取 <strong>MyService</strong> 的实例；</li>
+</ul>
+<h1 id="B-通过-Messenger-进行-Service-的绑定，进行-IPC-通讯（单线程执行任务）"><a href="#B-通过-Messenger-进行-Service-的绑定，进行-IPC-通讯（单线程执行任务）" class="headerlink" title="B.通过 Messenger 进行 Service 的绑定，进行 IPC 通讯（单线程执行任务）"></a>B.通过 Messenger 进行 Service 的绑定，进行 IPC 通讯（单线程执行任务）</h1><p>通过信使进行通讯，还是参考官方文档。<br>其中关于官方文档中描述，只描述了 <strong>Activity</strong> 如何通过 <strong>Messenger</strong> 访问 <strong>Service</strong>，并没有讲述如何在 <strong>Service</strong> 返回数据到 <strong>Activity</strong> 当中，下面做一个补充。</p>
+<p>使用 <strong>Messenger</strong> 进行组件的通讯，本质是 <strong>Activity</strong> 和 <strong>Service</strong> 都拿到绑定了对方的 <strong>Messenger</strong> 实例。在组件自身中，绑定自身的 <strong>Messenger</strong> 用于接收消息， 绑定对方的 <strong>Messenger</strong> 用于发送消息。</p>
+<h2 id="步骤一"><a href="#步骤一" class="headerlink" title="步骤一"></a>步骤一</h2><p>在 <strong>Actiivty</strong> 中定一个内部静态 <strong>Handler</strong> 类(静态是为了防止内存泄露)，用于处理 <strong>Service</strong> 返回的消息:</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> LocalActivity extents Activity &#123;</span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">private</span> Messenger mMessenger ;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">public</span> <span class="title">LocalActivity</span><span class="params">()</span></span>&#123;</span><br><span class="line">        <span class="keyword">super</span>();</span><br><span class="line">        mMessenger = <span class="keyword">new</span> Messenger(<span class="keyword">new</span> IncomingHandlerHandler(<span class="keyword">this</span>));</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="class"><span class="keyword">class</span> <span class="title">IncomingHandlerHandler</span> <span class="keyword">extends</span> <span class="title">Handler</span> </span>&#123;</span><br><span class="line">        <span class="keyword">private</span> <span class="keyword">final</span> WeakReference&lt;LocalActivity&gt; mActivity;</span><br><span class="line">        <span class="function"><span class="keyword">public</span> <span class="title">IncomingHandlerHandler</span><span class="params">(LocalActivity activity)</span> </span>&#123;</span><br><span class="line">            mActivity = <span class="keyword">new</span> WeakReference&lt;&gt;(activity);</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">handleMessage</span><span class="params">(Message msg)</span> </span>&#123;</span><br><span class="line">           LocalActivity activity = mActivity.get();</span><br><span class="line">            <span class="keyword">if</span> (<span class="keyword">null</span> != activity) &#123;</span><br><span class="line">                <span class="keyword">switch</span> (msg.what) &#123;</span><br><span class="line">                    <span class="keyword">case</span> ...:</span><br><span class="line">                        <span class="keyword">break</span>;</span><br><span class="line">                    <span class="keyword">default</span>:</span><br><span class="line">                        <span class="keyword">super</span>.handleMessage(msg);</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>然后通过 <strong>Activity</strong> 的构造方法初始化绑定了该活动的 <strong>Messenger</strong>。</p>
+<h2 id="步骤二"><a href="#步骤二" class="headerlink" title="步骤二"></a>步骤二</h2><p>在 <strong>Service</strong> 和 <strong>Activity</strong> 进行绑定的之后，在 <strong>ServiceConnection</strong> 实例的实现当中，获取到绑定了 <strong>Service</strong> 的 <strong>Messenger</strong>，通过该信使实例，发送一个消息，通过赋值给消息的字段 <code>message.replyTo = mMessenger</code>, 将绑定了 <strong>Activity</strong> 的 <strong>mMessenger</strong> 发送到服务当中：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> LocalActivity extents Activity &#123;</span><br><span class="line">    ...</span><br><span class="line">    <span class="keyword">private</span> Messenger mService;</span><br><span class="line">    <span class="keyword">private</span> ServiceConnection mConnection = <span class="keyword">new</span> ServiceConnection() &#123;</span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onServiceConnected</span><span class="params">(ComponentName name, IBinder service)</span> </span>&#123;</span><br><span class="line">            mService = <span class="keyword">new</span> Messenger(service);</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                Message message = Message.obtain(<span class="keyword">null</span>, ServiceMsg.MSG_REGISTER);</span><br><span class="line">                <span class="comment">//在这！</span></span><br><span class="line">                message.replyTo = mMessenger;</span><br><span class="line">                mService.send(message);</span><br><span class="line">            &#125; <span class="keyword">catch</span> (RemoteException e) &#123;</span><br><span class="line">                mService = <span class="keyword">null</span>;</span><br><span class="line">                e.printStackTrace();</span><br><span class="line">            &#125;</span><br><span class="line">            mBound = <span class="keyword">true</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="meta">@Override</span></span><br><span class="line">        <span class="function"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title">onServiceDisconnected</span><span class="params">(ComponentName name)</span> </span>&#123;</span><br><span class="line">            mService = <span class="keyword">null</span>;</span><br><span class="line">            mBound = <span class="keyword">false</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;;</span><br><span class="line">    ...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>然后，在服务当中也存在了绑定了 <strong>Activty</strong> 的 <strong>Messenger</strong>，通过它，可以在 Service 中将信息返回到 Activity 当中处理。</p>
+<h1 id="C-注意事项"><a href="#C-注意事项" class="headerlink" title="C.注意事项"></a>C.注意事项</h1><p>一个 Service 可以被多个 Activity 绑定，当其中前面的 Activity 解除绑定或者销毁时，Service 不会走解除绑定的生命周期方法，只有当最后一个 Activity 解除绑定或者销毁时，Service 才会释放。</p>
+<blockquote>
+<p>原文引用：多个客户端可同时连接到一个服务。不过，只有在第一个客户端绑定时，系统才会调用服务的 onBind() 方法来检索 IBinder。系统随后无需再次调用 onBind()，便可将同一 IBinder 传递至任何其他绑定的客户端。当最后一个客户端取消与服务的绑定时，系统会将服务销毁（除非 startService() 也启动了该服务）。</p>
+</blockquote>
+<p><a target="_blank" rel="noopener" href="https://github.com/TommyFen/BindServiceSample">相关代码</a></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta">文章作者: </span><span class="post-copyright-info"><a href="mailto:undefined">T+</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta">文章链接: </span><span class="post-copyright-info"><a href="https://tommyfen.cn/2017/11/26/Service%E7%9A%84%E7%BB%91%E5%AE%9A%E5%B0%8F%E7%BB%93/">https://tommyfen.cn/2017/11/26/Service%E7%9A%84%E7%BB%91%E5%AE%9A%E5%B0%8F%E7%BB%93/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta">版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来自 <a href="https://tommyfen.cn" target="_blank">T+ 的小院</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Android/">Android</a><a class="post-meta__tags" href="/tags/Service/">Service</a></div><div class="post_share"><div class="social-share" data-image="/assets/img/avatar.png" data-sites="facebook,twitter,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/social-share.js/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/social-share.js/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><div class="prev-post pull-left"><a href="/2017/12/15/Bluetooth-Low-Energy/"><img class="prev-cover" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="pagination-info"><div class="label">上一篇</div><div class="prev_info">Bluetooth-Low_Energy</div></div></a></div><div class="next-post pull-right"><a href="/2017/10/06/Hexo-Github%E6%90%AD%E5%BB%BA%E4%B8%AA%E4%BA%BA%E5%8D%9A%E5%AE%A2/"><img class="next-cover" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="pagination-info"><div class="label">下一篇</div><div class="next_info">Hexo+Github搭建个人博客</div></div></a></div></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span> 相关推荐</span></div><div class="relatedPosts-list"><div><a href="/2016/10/13/Android中的可存储路径/" title="Android中的可存储路径"><img class="cover" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2016-10-13</div><div class="title">Android中的可存储路径</div></div></a></div><div><a href="/2018/03/13/DialogFragment详解/" title="DialogFragment详解"><img class="cover" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2018-03-13</div><div class="title">DialogFragment详解</div></div></a></div><div><a href="/2018/02/23/Fragment概要篇/" title="Fragment概要篇"><img class="cover" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2018-02-23</div><div class="title">Fragment概要篇</div></div></a></div><div><a href="/2018/04/09/TextView-及其子类自定义字体样式/" title="TextView 及其子类自定义字体样式"><img class="cover" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2018-04-09</div><div class="title">TextView 及其子类自定义字体样式</div></div></a></div><div><a href="/2016/09/20/BLE开发浅谈之官方案例分析/" title="BluetoothGatt Sample 分析"><img class="cover" src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1/img/default.jpg" alt="cover"><div class="content is-center"><div class="date"><i class="far fa-calendar-alt fa-fw"></i> 2016-09-20</div><div class="title">BluetoothGatt Sample 分析</div></div></a></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info"><div class="card-info-avatar is-center"><img class="avatar-img" src="/assets/img/avatar.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/><div class="author-info__name">T+</div><div class="author-info__description"></div></div><div class="card-info-data"><div class="card-info-data-item is-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">10</div></a></div><div class="card-info-data-item is-center"><a href="/tags/"><div class="headline">标签</div><div class="length-num">9</div></a></div><div class="card-info-data-item is-center"><a href="/categories/"><div class="headline">分类</div><div class="length-num">6</div></a></div></div><a class="button--animated" id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/xxxxxx"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons is-center"><a class="social-icon" href="https://github.com/tommyfen" target="_blank" title="Github"><i class="fab fa-github"></i></a><a class="social-icon" href="https://stackoverflow.com/users/7455574/tommy" target="_blank" title="StackOverflow"><i class="fab fa-stack-overflow"></i></a></div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-1"><a class="toc-link" href="#A-%E5%85%B3%E4%BA%8E%E6%9C%AC%E5%9C%B0%E7%BB%91%E5%AE%9A%E6%9C%8D%E5%8A%A1%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%93%8D%E4%BD%9C%E6%B5%81%E7%A8%8B"><span class="toc-number">1.</span> <span class="toc-text">A.关于本地绑定服务的基本操作流程</span></a></li><li class="toc-item toc-level-1"><a class="toc-link" href="#B-%E9%80%9A%E8%BF%87-Messenger-%E8%BF%9B%E8%A1%8C-Service-%E7%9A%84%E7%BB%91%E5%AE%9A%EF%BC%8C%E8%BF%9B%E8%A1%8C-IPC-%E9%80%9A%E8%AE%AF%EF%BC%88%E5%8D%95%E7%BA%BF%E7%A8%8B%E6%89%A7%E8%A1%8C%E4%BB%BB%E5%8A%A1%EF%BC%89"><span class="toc-number">2.</span> <span class="toc-text">B.通过 Messenger 进行 Service 的绑定，进行 IPC 通讯（单线程执行任务）</span></a><ol class="toc-child"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%AD%A5%E9%AA%A4%E4%B8%80"><span class="toc-number">2.1.</span> <span class="toc-text">步骤一</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E6%AD%A5%E9%AA%A4%E4%BA%8C"><span class="toc-number">2.2.</span> <span class="toc-text">步骤二</span></a></li></ol></li><li class="toc-item toc-level-1"><a class="toc-link" href="#C-%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="toc-number">3.</span> <span class="toc-text">C.注意事项</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2018/04/09/TextView-%E5%8F%8A%E5%85%B6%E5%AD%90%E7%B1%BB%E8%87%AA%E5%AE%9A%E4%B9%89%E5%AD%97%E4%BD%93%E6%A0%B7%E5%BC%8F/" title="TextView 及其子类自定义字体样式">TextView 及其子类自定义字体样式</a><time datetime="2018-04-09T14:11:51.000Z" title="发表于 2018-04-09 22:11:51">2018-04-09</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2018/03/13/DialogFragment%E8%AF%A6%E8%A7%A3/" title="DialogFragment详解">DialogFragment详解</a><time datetime="2018-03-13T14:35:17.000Z" title="发表于 2018-03-13 22:35:17">2018-03-13</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2018/02/23/Fragment%E6%A6%82%E8%A6%81%E7%AF%87/" title="Fragment概要篇">Fragment概要篇</a><time datetime="2018-02-23T14:09:02.000Z" title="发表于 2018-02-23 22:09:02">2018-02-23</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2018/01/26/BLE-API%E5%88%86%E6%9E%90/" title="BLE API分析">BLE API分析</a><time datetime="2018-01-26T14:25:52.000Z" title="发表于 2018-01-26 22:25:52">2018-01-26</time></div></div><div class="aside-list-item no-cover"><div class="content"><a class="title" href="/2017/12/15/Bluetooth-Low-Energy/" title="Bluetooth-Low_Energy">Bluetooth-Low_Energy</a><time datetime="2017-12-15T14:17:15.000Z" title="发表于 2017-12-15 22:17:15">2017-12-15</time></div></div></div></div></div></div></main><footer id="footer"><div id="footer-wrap"><div class="copyright">&copy;2017 - 2021 By T+</div><div class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly</a></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="浅色和深色模式转换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside_config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js"></script><script src="/js/main.js"></script><div class="js-pjax"><script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></div></body></html>
